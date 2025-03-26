@@ -1,0 +1,147 @@
+﻿@page "/content-lock"
+@using AdminManager
+@using AdminManager.Accessors
+@using AdminManager.Common
+@using AdminManager.Components
+@using AdminManager.Components.Shared
+@using AdminManager.Job
+@using AdminManager.ModelView
+@using AdminManager.Service
+@using GDT
+
+@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+
+@inject ContentService ContentService
+
+<div class="container-fluid my-2">
+    <div class="row my-4">
+        <div class="col-4 text-begin">
+            <RadzenText TextStyle="TextStyle.H6">게임 LOCK ON / OFF</RadzenText>
+        </div>
+    </div>
+    <div class="row p-2">
+        <div class="col text-start">
+            <RadzenButton Click="OnRefresh">새로 고침</RadzenButton>
+        </div>
+    </div>
+
+    <div class="row p-2">
+        <div class="col text-start">
+            <RadzenText TextStyle="TextStyle.Body1">Lock On - 게임 진행 불가! / Lock Off - 게임 진행 가능!</RadzenText>
+        </div>
+    </div>
+
+    <div class="row p-2">
+        <RadzenStack Class="rz-p-sm-12">
+            <RadzenText TextStyle="TextStyle.Caption">홀덤 [LOCK @(_isLockHoldem ? "ON" : "OFF")]</RadzenText>
+            <RadzenSwitch @bind-Value="@_isLockHoldem" Change=@(args => OnChange(args, GameModeValue.GMV_HoldemGame)) InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "Switch value" } })" />
+        </RadzenStack>
+        
+        <RadzenStack Class="rz-p-sm-12">
+            <RadzenText TextStyle="TextStyle.Caption">코인 토스 [LOCK @(_isLockCoinToss ? "ON" : "OFF")]</RadzenText>
+            <RadzenSwitch @bind-Value="@_isLockCoinToss" Change=@(args => OnChange(args, GameModeValue.GMV_HeadsAndTails)) InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "Switch value" } })" />
+        </RadzenStack>
+        
+        <RadzenStack Class="rz-p-sm-12">
+            <RadzenText TextStyle="TextStyle.Caption">퓨처 헌터 [LOCK @(_isLockFurtureHunter ? "ON" : "OFF")]</RadzenText>
+            <RadzenSwitch @bind-Value="@_isLockFurtureHunter" Change=@(args => OnChange(args, GameModeValue.GMV_TreasureRotaryGame)) InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "Switch value" } })" />
+        </RadzenStack>
+    </div>
+</div>
+
+<EventConsole @ref="@_console" />
+
+
+@code {
+    EventConsole _console;
+
+    private bool _isLockHoldem = false;
+    private bool _isLockCoinToss = false;
+    private bool _isLockFurtureHunter = false;
+
+    private DateTime _lastRefreshDateTime = DateTime.Now;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _console = new EventConsole();
+        ContentService.OnResponseContentsLock += OnContentsLockComplete;
+        ContentService.OnResponseContentLockSwitch += OnLockSwitchComplete;
+
+        await base.OnInitializedAsync();
+    }
+
+    private void Dispose()
+    {
+        ContentService.OnResponseContentsLock -= OnContentsLockComplete;
+        ContentService.OnResponseContentLockSwitch -= OnLockSwitchComplete;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            GetContentsLock();
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async void OnRefresh()
+    {
+        if (!IsValidRefresh())
+            return;
+
+        ContentService.ReqContentsStatus();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsValidRefresh()
+    {
+        var now = DateTime.Now;
+        if (_lastRefreshDateTime > now)
+        {
+            NotificationService.ShowMessage(NotificationSeverity.Info, "알림", "5초뒤 가능합니다.");
+            return false;
+        }
+
+        _lastRefreshDateTime = now.AddSeconds(5);
+        return true;
+    }
+
+    private async void GetContentsLock()
+    {
+        _isLockHoldem = await ContentService.GetContentLock(GameModeValue.GMV_HoldemGame);
+        _isLockCoinToss = await ContentService.GetContentLock(GameModeValue.GMV_HeadsAndTails);
+        _isLockFurtureHunter = await ContentService.GetContentLock(GameModeValue.GMV_TreasureRotaryGame);
+
+        _console.Log($"holdem - Lock {_isLockHoldem}, CoinToss Lock {_isLockCoinToss}, FutureHunter Lock {_isLockFurtureHunter}");
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnChange(bool isOn, GameModeValue gmv)
+    {
+        if (!IsValidRefresh())
+            return;
+
+        _console.Log($"{gmv.GetDescription()} - {isOn}");
+
+        await Task.Run(() =>
+        {
+            ContentService.UpdateSwitchContent(gmv, isOn);
+        });
+    }
+
+    private void OnContentsLockComplete()
+    {
+        GetContentsLock();
+    }
+
+    private void OnLockSwitchComplete(bool isLock)
+    {
+        NotificationService.ShowMessage(NotificationSeverity.Info, "요청 완료", $"Lock {(isLock ? "ON" : "OFF")}");
+
+        GetContentsLock();
+    }
+
+}

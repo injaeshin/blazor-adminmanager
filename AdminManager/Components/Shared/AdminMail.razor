@@ -1,0 +1,99 @@
+﻿@inject NotificationService NotificationService
+@inject IAdminMailService AdminMailService
+
+<div class="row my-2">
+    <div class="col">
+        <RadzenCard Variant="Variant.Outlined" Class="rz-mx-auto">
+            <RadzenRow class="my-1">
+                <RadzenColumn>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">Template</RadzenText>
+                    <RadzenDropDown @bind-Value="@_titleId" Data="@_titleItems" Change="() => OnChangeMailTitleId()" TValue="int" TextProperty="Title" ValueProperty="Id" Name="MailText" Style="text-align: center;" />
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenRow class="my-1">
+                <RadzenColumn>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">Title</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_mailBody.Title)</b></RadzenText>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Body</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_mailBody.Body)</b></RadzenText>
+                </RadzenColumn>
+                <RadzenColumn>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Name</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_mailBody.Name)</b></RadzenText>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Term(Sec)</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_mailBody.Term.ToString())</b></RadzenText>
+                </RadzenColumn>
+                <RadzenColumn>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">KeepType</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_mailBody.KeepType)</b></RadzenText>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">AccountDetailType</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_mailBody.AccountType.GetDescription())</b></RadzenText>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+    </div>
+</div>
+
+<div class="row my-2">
+    <div class="col">
+        <RadzenCard Variant="Variant.Outlined" Class="rz-mx-auto">
+            <RadzenRow class="my-1">
+                <RadzenColumn>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">Begin Date/Time</RadzenText>
+                    <RadzenDatePicker @bind-Value="@_dt.BeginDate" ShowDays="true" DateFormat="yyyy-MM-dd" Name="BeginDate" />
+                    <RadzenDatePicker @bind-Value="@_dt.BeginTime" ShowTime="true" TimeOnly="true" DateFormat="HH:mm" Name="BeginTime" />
+                </RadzenColumn>
+                <RadzenColumn>
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">End Date/Time</RadzenText>
+                    <RadzenDatePicker @bind-Value="@_dt.EndDate" ShowDays="true" DateFormat="yyyy-MM-dd" Name="EndDate" />
+                    <RadzenDatePicker @bind-Value="@_dt.EndTime" ShowTime="true" TimeOnly="true" DateFormat="HH:mm" Name="EndTime" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    EventConsole Console { get; set; }
+
+    private int _titleId = 0;
+    private IEnumerable<MailHeader> _titleItems = null;
+
+    private MailBody _mailBody = new();
+    private DateTimeModelView _dt = new() { BeginDateTime = DateTime.Now, EndDateTime = DateTime.Now.AddDays(5) };
+
+    public int GetTitleId() => _titleId;
+    public long GetBeginTimeStamp() => _dt.BeginTimeStamp;
+    public long GetEndTimeStamp() => _dt.EndTimeStamp;
+    public GDT.ApplicationType GetApplicationType() => _mailBody.AccountType;
+
+    public bool IsValidation()
+    {
+        if (_dt == null || _titleId == 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "템플릿을 설정해주세요!!");
+            return false;
+        }
+
+        if (_dt.BeginDateTime >= _dt.EndDateTime)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "시작/종료 시간이 잘못되었습니다!!");
+            return false;
+        }
+
+        return true;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _titleItems = AdminMailService.GetMailText();
+
+        await base.OnInitializedAsync();
+    }
+
+    private void OnChangeMailTitleId()
+    {
+        _mailBody = AdminMailService.GetMailBody(_titleId);
+    }
+}

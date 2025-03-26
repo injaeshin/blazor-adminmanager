@@ -1,0 +1,81 @@
+﻿@page "/mail"
+
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+@inject IAdminMailService AdminMailService
+
+<PageTitle>전체 우편 예약</PageTitle>
+
+<div class="container-fluid my-2">
+    <div class="row my-4">
+        <div class="col">
+            <RadzenText TextStyle="TextStyle.H6">전체 우편 예약</RadzenText>
+        </div>
+    </div>
+    
+    <CascadingValue Value="@_console" Name="EventConsole">
+        <AdminMail @ref="@_adminMail" />
+        <AdminMailItem @ref="@_adminMailItem" />
+    </CascadingValue>
+
+    <div class="row my-4">
+        <div class="col text-center">
+            <RadzenButton Click="@OnSubmitAsync" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large">우편 등록</RadzenButton>
+        </div>
+    </div>
+    
+    <EventConsole @ref="@_console" />
+</div>
+
+@code {
+    EventConsole _console;
+
+    AdminMail _adminMail;
+    AdminMailItem _adminMailItem;
+
+    private async Task OnSubmitAsync()
+    {
+        if (!IsValidation())
+        {
+            return;
+        }
+
+        var mailId = _adminMail.GetTitleId();
+        var begin = _adminMail.GetBeginTimeStamp();
+        var end = _adminMail.GetEndTimeStamp();
+        if (!await AdminMailService.AddAdminMailAsync(mailId, begin, end, _adminMailItem.MailItems))
+        {
+            return;
+        }
+
+        _console.Log("Save Success");
+
+        await AdminMailService.SendAdminMailReloadAsync();
+        
+        _console.Log("Send Reload Command");
+
+        NotificationService.Notify(NotificationSeverity.Success, "Successes", "등록 완료!!");
+
+        await Task.CompletedTask;
+    }
+
+    private bool IsValidation()
+    {
+        if (!_adminMail.IsValidation())
+        {
+            return false;
+        }
+
+        if (!_adminMailItem.IsValidation())
+        {
+            return false;
+        }
+
+        _console.Log("Validation Success");
+
+        return true;
+    }
+
+    
+}

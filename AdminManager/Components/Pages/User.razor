@@ -1,0 +1,431 @@
+﻿@page "/user"
+
+@inject NotificationService NotificationService
+@inject IUserService UserService
+
+<PageTitle>User</PageTitle>
+
+<div class="container-fluid my-2">
+    <div class="row">
+        <div class="col">
+            <RadzenTemplateForm TItem="string" Data="@_search" Submit="@OnSearchSubmit">
+                <RadzenCard class="my-2">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+                        <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">UserType</RadzenText>
+                            <RadzenDropDown @bind-Value="@_targetUserType" Data="@_userTargetItems" TValue="TargetUserType" TextProperty="TypeStr" ValueProperty="Type" Style="width: 100%;" Name="TargetUserTypeUserType" />
+                        </RadzenStack>
+                        <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Name</RadzenText>
+                            <RadzenTextBox Name="Name" @bind-Value="@_search" />
+                            <RadzenRequiredValidator Component="Name" Text="name is required" Popup="false" Style="position: absolute" />
+                        </RadzenStack>
+                        <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Submit</RadzenText>
+                            <RadzenButton ButtonType="ButtonType.Submit" Text="Search"></RadzenButton>
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenTemplateForm>
+        </div>
+    </div>
+
+    <div class="row my-2">
+        <div class="col">
+            @if (@_accountDetail != null)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" Gap="1rem" Class="rz-p-2">
+                    <RadzenRow class="rz-text-align-center" Gap="1rem" Style="Width: 100%">
+                        <RadzenColumn Size="2">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">AUId</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_accountDetail?.AUID)</b></RadzenText>
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">CSCode</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_accountDetail?.CSCode)</b></RadzenText>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="2">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Platform</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_accountDetail?.Platform)</b></RadzenText>
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Privilege</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_accountDetail?.Privilege)</b></RadzenText>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="2">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Tier Level</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_accountDetail?.TierLv)</b></RadzenText>
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Tier Exp</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_accountDetail?.TierExp)</b></RadzenText>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="2">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Klay</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>00!?</b></RadzenText>
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">-</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>-</b></RadzenText>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="4">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Create Datetime</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_accountDetail?.CreateDT)</b></RadzenText>
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Login Datetime</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class=""><b>@(_accountDetail?.LoginDT)</b></RadzenText>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenStack>
+            }
+        </div>
+    </div>
+    <div class="row my-2">
+        <div class="col">
+            @if (@_characters != null)
+            {
+                <RadzenSplitter Orientation="Orientation.Vertical" style="rgba(0,0,0,.08);">
+                    <RadzenSplitterPane>
+                        <RadzenSplitter>
+                            <RadzenSplitterPane Size="50%" Min="30px" Max="70%">
+                                <RadzenDataGrid Data="@_characters" TItem="CharacterModelView" AllowVirtualization="true" Style="height:300px"
+                                                AllowFiltering="true" FilterPopupRenderMode="PopupRenderMode.OnDemand" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                                RowSelect="@SelectCharacterAsync" SelectionMode="DataGridSelectionMode.Single" PagerHorizontalAlign="HorizontalAlign.Center" AllowSorting="true">
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="CharacterModelView" Property="Name" Title="이름" Width="150px" />
+                                        <RadzenDataGridColumn TItem="CharacterModelView" Property="CUID" Title="CUID" />
+                                        <RadzenDataGridColumn TItem="CharacterModelView" Property="Status" Title="상태">
+                                            <Template Context="data">
+                                                <RadzenText Text="@data.Status.GetDescription()" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="CharacterModelView" Property="CreateDT" Title="생성" />
+                                        <RadzenDataGridColumn TItem="CharacterModelView" Property="DeleteDT" Title="삭제" />
+                                    </Columns>
+                                </RadzenDataGrid>
+                            </RadzenSplitterPane>
+                            <RadzenSplitterPane>
+                                @if (_characterDetailModel != null)
+                                {
+                                    <div class="rz-p-4">
+                                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" Gap="1rem">
+                                            <RadzenStack Orientation="Orientation.Vertical" Gap="1px">
+                                                <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-mb-0">Name</RadzenText>
+                                                <RadzenText TextStyle="TextStyle.Body1"><b>@(_characterDetailModel?.Name)</b></RadzenText>
+                                            </RadzenStack>
+                                            <RadzenStack Orientation="Orientation.Vertical" Gap="1px">
+                                                <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-mb-0">CUID</RadzenText>
+                                                <RadzenText TextStyle="TextStyle.Body1"><b>@(_characterDetailModel?.CUID)</b></RadzenText>
+                                            </RadzenStack>
+                                            <RadzenStack Orientation="Orientation.Vertical" Gap="1px">
+                                                <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-mb-0">Status</RadzenText>
+                                                <RadzenText TextStyle="TextStyle.Body1"><b>@(_characterDetailModel?.Status.GetDescription())</b></RadzenText>
+                                            </RadzenStack>
+                                        </RadzenStack>
+                                        <RadzenCard class="rz-background-color-primary-light rz-shadow-0 rz-border-radius-0 rz-p-8" style="margin: 1rem calc(-1 * var(--rz-card-padding));">
+                                            <RadzenText TextStyle="TextStyle.H6" class="rz-color-on-primary-light"><strong>Information</strong></RadzenText>
+                                            <RadzenRow RowGap="0">
+                                                <RadzenColumn SizeSM="4">
+                                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-color-on-primary-light rz-display-flex rz-mt-4 rz-mb-0">Level</RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-on-primary-light"><b>@(_characterDetailModel?.Level)</b></RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-color-on-primary-light rz-display-flex rz-mt-4 rz-mb-0">Level Exp</RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-on-primary-light"><b>@(_characterDetailModel?.LevelExp)</b></RadzenText>
+                                                </RadzenColumn>
+                                                <RadzenColumn SizeSM="4">
+                                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-color-on-primary-light rz-display-flex rz-mt-4 rz-mb-0">Create DateTime</RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-on-primary-light"><b>@(_characterDetailModel?.CreateDT)</b></RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-color-on-primary-light rz-display-flex rz-mt-4 rz-mb-0">Delete DateTime</RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-on-primary-light"><b>@(_characterDetailModel?.DeleteDT)</b></RadzenText>
+                                                </RadzenColumn>
+                                                <RadzenColumn SizeSM="4">
+                                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-color-on-primary-light rz-display-flex rz-mt-4 rz-mb-0">Login DateTime</RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-on-primary-light"><b>@(_characterDetailModel?.LoginDT)</b></RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-color-on-primary-light rz-display-flex rz-mt-4 rz-mb-0">Logout DateTime</RadzenText>
+                                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-color-on-primary-light"><b>@(_characterDetailModel?.LogoutDT)</b></RadzenText>
+                                                </RadzenColumn>
+                                            </RadzenRow>
+                                        </RadzenCard>
+                                    </div>
+                                }
+                            </RadzenSplitterPane>
+                        </RadzenSplitter>
+                    </RadzenSplitterPane>
+                </RadzenSplitter>
+            }
+        </div>
+    </div>
+
+    <div class="row my=5">
+        <div class="col">
+            <RadzenTabs @ref="@_characterDetailTabs" @bind-SelectedIndex="@_tabIndex" Change="OnTabChange" Visible="@_isVisibleCharacterDetailTab">
+                <Tabs>
+                    <RadzenTabsItem Text="재화">
+                        <RadzenDataGrid AllowFiltering="true" AllowColumnResize="true" ColumnWidth="*"
+                                        SelectionMode="DataGridSelectionMode.Single" @bind-Value="@_selectedCurrencies"
+                                        FilterMode="FilterMode.Advanced" PageSize="15" AllowPaging="true" AllowSorting="true" Data="@_currencies" TItem="CurrencyModelView"
+                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" LogicalFilterOperator="LogicalFilterOperator.And">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="CurrencyModelView" Property="SubTypeStr" Title="SubUserType" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="CurrencyModelView" Property="DefaultAmount" Title="Default Amount" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="CurrencyModelView" Property="CurrentAmount" Title="Current Amount" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="CurrencyModelView" Property="UpdateDT" Title="Update DT" TextAlign="TextAlign.Center" />
+                            </Columns>
+                        </RadzenDataGrid>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="아이템">
+                        <RadzenDataGrid AllowFiltering="true" AllowColumnResize="true" ColumnWidth="*"
+                                        SelectionMode="DataGridSelectionMode.Single" @bind-Value="@_selectedItems"
+                                        FilterMode="FilterMode.Advanced" PageSize="15" AllowPaging="true" AllowSorting="true" Data="@_items" TItem="ItemModelView"
+                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" LogicalFilterOperator="LogicalFilterOperator.And">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="ItemModelView" Property="ItemUID" Title="Item UId" Frozen="true" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="ItemModelView" Property="ItemID" Title="Item Id" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="ItemModelView" Property="ItemName" Title="Item Name" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="ItemModelView" Property="Amount" Title="Amount" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="ItemModelView" Property="StorageType" Title="Storage" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="ItemModelView" Property="EquipSlot" Title="Equip Slot" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="ItemModelView" Property="UpdateDT" Title="Update DT" TextAlign="TextAlign.Center" />
+                            </Columns>
+                        </RadzenDataGrid>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="우편">
+                        <RadzenDataGrid AllowGrouping="true" AllowFiltering="true" AllowColumnResize="true" ColumnWidth="*" Render="@OnMailRender"
+                                        FilterMode="FilterMode.Advanced" PageSize="15" AllowPaging="true" AllowSorting="true" Data="@_mails" TItem="MailModelView"
+                                        RowRender="@OnRowRender" HideGroupedColumn="true"
+                                        ExpandMode="DataGridExpandMode.Multiple" RowExpand="OnRowExpand"
+                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" LogicalFilterOperator="LogicalFilterOperator.And">
+                            <Template Context="mail">
+                                <RadzenCard Variant="Variant.Filled" Class="rz-mx-auto" Style="max-width: 1200px">
+                                    <RadzenDataGrid Data="@mail.AttachItems" TItem="MailAttachItemModelView">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="MailAttachItemModelView" Property="Idx" Title="No" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="MailAttachItemModelView" Property="ItemType" Title="Type" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="MailAttachItemModelView" Property="ItemTypeStr" Title="Type Str" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="MailAttachItemModelView" Property="Param" Title="Param(ID)" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="MailAttachItemModelView" Property="ItemName" Title="Name" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="MailAttachItemModelView" Property="Amount" Title="amount" TextAlign="TextAlign.Center" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenCard>
+                            </Template>
+                            <Columns>
+                                <RadzenDataGridColumn TItem="MailModelView" Property="MUID" Title="Mail UID" Frozen="true" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="MailModelView" Property="MailID" Title="Mail ID" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="MailModelView" Property="MailStateStr" Title="State" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="MailModelView" Property="CreateDT" Title="Create DT" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="MailModelView" Property="ExpireDT" Title="Expire DT" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="MailModelView" Property="IsAccount" Title="Is Account" TextAlign="TextAlign.Center" />
+                            </Columns>
+                        </RadzenDataGrid>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="퀘스트">
+                        <RadzenDataGrid AllowGrouping="true" AllowFiltering="true" AllowColumnResize="true" ColumnWidth="*" Render="@OnQuestRender"
+                                        FilterMode="FilterMode.Advanced" PageSize="30" AllowPaging="true" AllowSorting="true" Data="@_quests" TItem="QuestModelView"
+                                        RowRender="@OnQuestRowRender" HideGroupedColumn="true"
+                                        ExpandMode="DataGridExpandMode.Multiple" RowExpand="OnQuestRowExpand"
+                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" LogicalFilterOperator="LogicalFilterOperator.And">
+                            <Template Context="quest">
+                                <RadzenCard Variant="Variant.Filled" Class="rz-mx-auto" Style="max-width: 1200px">
+                                    <RadzenDataGrid Data="@quest.QuestTasks" TItem="QuestTaskModelView">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="QuestTaskModelView" Property="TaskType" Title="Quest UserType" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="QuestTaskModelView" Property="TaskID" Title="Quest ID" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="QuestTaskModelView" Property="TaskName" Title="Quest NAME" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="QuestTaskModelView" Property="TaskState" Title="Quest State" TextAlign="TextAlign.Center">
+                                                <Template Context="data">
+                                                    <RadzenText Text="@data.StatusStr" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="QuestTaskModelView" Property="TaskProgress" Title="Quest Progress" TextAlign="TextAlign.Center" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenCard>
+                            </Template>
+                            <Columns>
+                                <RadzenDataGridColumn TItem="QuestModelView" Property="TypeStr" Title="Quest Type" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="QuestModelView" Property="QuestID" Title="Quest ID" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="QuestModelView" Property="Name" Title="Quest Name" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="QuestModelView" Property="StatusStr" Title="Quest State" TextAlign="TextAlign.Center">
+                                    <Template Context="data">
+                                        <RadzenText Text="@data.StatusStr" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="QuestModelView" Property="UpdateDT" Title="Update DT" TextAlign="TextAlign.Center" />
+                            </Columns>
+                        </RadzenDataGrid>
+                    </RadzenTabsItem>
+                </Tabs>
+            </RadzenTabs>
+
+        </div>
+    </div>
+</div>
+
+@code
+{
+    readonly IEnumerable<Common.User> _userTargetItems = TargetViewPreset.UserTargets;
+    TargetUserType _targetUserType = TargetUserType.Character;
+    string _search = string.Empty;
+
+    AccountModelView _accountDetail = null;
+    IEnumerable<CharacterModelView> _characters = null;
+
+    CharacterDetailModelView _characterDetailModel = null;
+    RadzenTabs _characterDetailTabs = null;
+    int _tabIndex = 0;
+    bool _isVisibleCharacterDetailTab = false;
+
+    IEnumerable<ItemModelView> _items = null;
+    IList<ItemModelView> _selectedItems = null;
+
+    IEnumerable<CurrencyModelView> _currencies = null;
+    IList<CurrencyModelView> _selectedCurrencies = null;
+
+    IEnumerable<MailModelView> _mails = null;
+    IEnumerable<QuestModelView> _quests = null;
+
+    private async Task OnSearchSubmit(string name)
+    {
+        if (name.Trim() == string.Empty)
+        {
+            return;
+        }
+
+        var auid = await UserService.GetAccountUIDAsync(_targetUserType, name);
+        if (auid == 0)
+        {
+            NotificationService.ShowMessage(NotificationSeverity.Error, "user not found", name);
+            return;
+        }
+
+        // get account detail
+        if (!await SetAccountDetailAsync(auid, name))
+        {
+            return;
+        }
+
+        // get characters
+        _characters = await UserService.GetCharactersByAUIDAsync(auid);
+        if (_characters is null)
+        {
+            NotificationService.ShowMessage(NotificationSeverity.Error, "character not found", name);
+            return;
+        }
+
+        _characterDetailModel = null;
+        _isVisibleCharacterDetailTab = false;
+
+        StateHasChanged();
+    }
+
+    private async Task SelectCharacterAsync(CharacterModelView cvm)
+    {
+        if (!await SetCharacterDetail(cvm.CUID))
+            return;
+
+        _isVisibleCharacterDetailTab = true;
+        await OnTabChange(_characterDetailTabs.SelectedIndex);
+    }
+
+    private async Task<bool> SetCharacterDetail(long cuid)
+    {
+        _characterDetailModel = await UserService.GetCharacterDetailByCUID(cuid);
+        if (_characterDetailModel is null)
+        {
+            NotificationService.ShowMessage(NotificationSeverity.Error, "character not found", cuid.ToString());
+            return false;
+        }
+
+        return true;
+    }
+
+    async Task OnTabChange(int idx)
+    {
+        switch (idx)
+        {
+            case 0:
+                _currencies = await UserService.GetCurrencyAsync(_characterDetailModel.CUID);
+                break;
+            case 1:
+                _items = await UserService.GetItemAsync(_characterDetailModel.CUID);
+                break;
+            case 2:
+                _mails = await UserService.GetMailAsync(_characterDetailModel.AUID, _characterDetailModel.CUID);
+                break;
+            case 3:
+                _quests = await UserService.GetQuestAsync(_characterDetailModel.CUID);
+                break;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    #region Mail
+    void OnMailRender(DataGridRenderEventArgs<MailModelView> args)
+    {
+        if (!args.FirstRender)
+            return;
+
+        args.Grid.Groups.Add(new GroupDescriptor() { Property = "IsAccount", SortOrder = SortOrder.Descending });
+        StateHasChanged();
+    }
+
+    void OnRowRender(RowRenderEventArgs<MailModelView> args)
+    {
+        args.Expandable = true; /* args.Data.RewardItems.Count() > 0; */
+    }
+
+    async void OnRowExpand(MailModelView mailModel)
+    {
+        if (mailModel.AttachItems != null)
+            return;
+
+        mailModel.AttachItems = (await UserService.GetMailAttachItem(mailModel.IsAccount, mailModel.MUID))?.ToList();
+
+        StateHasChanged();
+    }
+    #endregion
+
+    #region Quest
+    void OnQuestRender(DataGridRenderEventArgs<QuestModelView> args)
+    {
+        if (!args.FirstRender)
+            return;
+
+        args.Grid.Groups.Add(new GroupDescriptor() { Property = "TypeStr", SortOrder = SortOrder.Ascending });
+        StateHasChanged();
+    }
+
+    void OnQuestRowRender(RowRenderEventArgs<QuestModelView> args)
+    {
+        args.Expandable = true;
+    }
+
+    async void OnQuestRowExpand(QuestModelView questModel)
+    {
+        if (questModel.QuestTasks != null)
+            return;
+
+        questModel.QuestTasks = (await UserService.GetQuestTask(_characterDetailModel.CUID, questModel.QuestID)).ToList();
+
+        StateHasChanged();
+    }
+    #endregion
+
+    private async Task<bool> SetAccountDetailAsync(long auid, string name)
+    {
+        _accountDetail = await UserService.GetAccountDetail(auid);
+        if (_accountDetail is null)
+        {
+            NotificationService.ShowMessage(NotificationSeverity.Error, "account not found", name);
+            return false;
+        }
+
+        var tier = await UserService.GetAccountTier(auid);
+        if (tier is null)
+        {
+            NotificationService.ShowMessage(NotificationSeverity.Error, "account tier not found", name);
+            return false;
+        }
+
+        _accountDetail.TierLv = tier.TierLv;
+        _accountDetail.TierExp = tier.TierExp;
+
+        return true;
+    }
+}

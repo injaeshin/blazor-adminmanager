@@ -1,0 +1,276 @@
+﻿@page "/mail-personal"
+
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+@inject IAdminMailService AdminMailService
+
+<PageTitle>유저 우편 예약/보내기</PageTitle>
+
+<div class="container-fluid my-2">
+    <div class="row my-4">
+        <div class="col">
+            <RadzenText TextStyle="TextStyle.H6">유저 우편 예약/보내기</RadzenText>
+        </div>
+    </div>
+
+    <CascadingValue Value="@_console" Name="EventConsole">
+        <AdminMail @ref="@_adminMail"/>
+        <AdminMailItem @ref="@_adminMailItem"/>
+    </CascadingValue>
+    
+    <div class="row my-4">
+        <div class="col">
+            <RadzenCard Variant="Variant.Outlined" Class="rz-mx-auto">
+                <div class="row my-2">
+                    <div class="col-3 p-1">
+                        <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">1. Target Type </RadzenText>
+                            <RadzenDropDown @bind-Value="@_targetAllType" Data="@_adminMailTargetTypes" TValue="TargetAllType" Change="@OnChangeTargetType" TextProperty="TypeStr" ValueProperty="Type" Style="width: 100%;" Name="TargetAllType" />
+
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">3. UID / NAME (MAX. 10) </RadzenText>
+                            <RadzenTextArea @bind-Value="@_targetTextArea" Cols="50" Rows="10" aria-label="TextArea" Style="width: 100%; height: 100%"/>
+                        </RadzenStack>
+                    </div>
+                    <div class="col-9 p-1">
+                        <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">2. Send Type</RadzenText>
+                            <RadzenDropDown @bind-Value="@_targetUserType" Data="@_adminMailSendTypes" ReadOnly="@_isReadonlySendType" TValue="TargetUserType" TextProperty="TypeStr" ValueProperty="Type" Style="width: 200px;" Name="TargetUserType" />
+                            
+                            <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">4. Validation / Send</RadzenText>
+                            <RadzenDataGrid Data="@_adminMailTargets" TItem="AdminMailTarget" Style="Width: 100%;">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="AdminMailTarget" Property="AccountUId" Title="Account UID" TextAlign="TextAlign.Center"/>
+                                    <RadzenDataGridColumn TItem="AdminMailTarget" Property="CharUId" Title="Char UID" TextAlign="TextAlign.Center"/>
+                                    <RadzenDataGridColumn TItem="AdminMailTarget" Property="CharName" Title="Name" TextAlign="TextAlign.Center"/>
+                                    <RadzenDataGridColumn TItem="AdminMailTarget" Property="Valid" Title="Valid" TextAlign="TextAlign.Center"/>
+                                    <RadzenDataGridColumn TItem="AdminMailTarget" Property="Send" Title="Send" TextAlign="TextAlign.Center"/>
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenStack>
+                    </div>
+                </div>
+                <div class="row my-2">
+                    <div class="col-3 p-1 text-center">
+                        <RadzenButton Click="@OnAddTargetToGridAsync" ButtonStyle="ButtonStyle.Secondary">추가</RadzenButton>
+                    </div>
+                    <div class="col-8 p-1 text-center">
+                        <RadzenButton Click="@OnTargetValidationAsync" ButtonStyle="ButtonStyle.Secondary">검증</RadzenButton>
+                    </div>
+                    <div class="col-1 p-1 text-center">
+                        <RadzenButton Click="(() => { _adminMailTargets = null; })" ButtonStyle="ButtonStyle.Secondary">초기화</RadzenButton>
+                    </div>
+                </div>
+            </RadzenCard>
+        </div>
+    </div>
+
+    <div class="row my-4">
+        <div class="col text-center">
+            <RadzenButton Click="@OnSubmitAsync" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large">우편 등록</RadzenButton>
+        </div>
+    </div>
+    
+    <EventConsole @ref="@_console" />
+</div>
+
+@code {
+    EventConsole _console;
+
+    AdminMail _adminMail;
+    AdminMailItem _adminMailItem;
+
+    readonly IEnumerable<MailTarget> _adminMailTargetTypes = TargetViewPreset.MailTargets;
+    TargetAllType _targetAllType = TargetAllType.AccountUId;
+
+    readonly IEnumerable<Common.User> _adminMailSendTypes = TargetViewPreset.UserTargets;
+    TargetUserType _targetUserType = TargetUserType.Character;
+
+    string _targetTextArea = string.Empty;
+    IEnumerable<AdminMailTarget> _adminMailTargets = null;
+
+    bool _isReadonlySendType = false;
+
+    private async Task OnSubmitAsync()
+    {
+        if (!IsValidation())
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "입력값을 확인해주세요.");
+            return;
+        }
+
+        if (_adminMailTargets.Any(target => !target.Valid))
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "대상 검증에 실패했습니다.");
+            return;
+        }
+
+        var mailId = _adminMail.GetTitleId();
+        var begin = _adminMail.GetBeginTimeStamp();
+        var end = _adminMail.GetEndTimeStamp();
+
+        if (_targetAllType == TargetAllType.AccountUId)
+        {
+            var targets = _adminMailTargets.ToList();
+            var ret = await AdminMailService.AddAdminMailToUserAsync(targets, mailId, begin, end, _adminMailItem.MailItems);
+            _adminMailTargets = targets;
+
+            if (!ret)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", "[진행 중 실패] 우편 등록에 실패했습니다.");
+                return;
+            }
+
+            _console.Log("Save Success");
+
+            var auids = targets.Select(i => i.AccountUId).ToList();
+            await AdminMailService.SendAccountAdminMailReloadAsync(auids);
+
+            _console.Log("Send Reload Command");
+        }
+        else
+        {
+
+            var targets = _adminMailTargets.ToList();
+            var ret = await AdminMailService.AddAdminMailToCharacterAsync(_targetUserType, targets, mailId, begin, end, _adminMailItem.MailItems);
+            _adminMailTargets = targets;
+
+            if (!ret)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", "[진행 중 실패] 우편 등록에 실패했습니다.");
+                return;
+            }
+
+            _console.Log("Save Success");
+
+            var cuids = targets.Select(i => i.CharUId).ToList();
+            await AdminMailService.SendCharacterAdminMailReloadAsync(cuids);
+
+            _console.Log("Send Reload Command");
+        }
+
+        NotificationService.Notify(NotificationSeverity.Success, "Successes", "등록 완료!!");
+
+        await Task.CompletedTask;
+    }
+
+    private bool IsValidation()
+    {
+        if (!_adminMail.IsValidation())
+        {
+            return false;
+        }
+
+        if (!_adminMailItem.IsValidation())
+        {
+            return false;
+        }
+
+        // _adminMail.GetApplicationType() 이 GDT.AT_Account 인 경우 targetUserType 이 Account 이어야 함
+        // _adminMail.GetApplicationType() 이 GDT.AT_Character 인 경우 targetUserType 이 Character 이어야 함
+        if ((_adminMail.GetApplicationType() == GDT.ApplicationType.AT_Account && _targetUserType != TargetUserType.Account) ||
+            (_adminMail.GetApplicationType() == GDT.ApplicationType.AT_Character && _targetUserType != TargetUserType.Character))
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "Account Detail Type - Send Type 유형이 일치하지 않습니다.");
+            return false;
+        }
+
+        _console.Log("Validation Success");
+
+        return true;
+    }
+
+    private async Task OnAddTargetToGridAsync()
+    {
+        if (_targetTextArea.Trim() == string.Empty)
+        {
+            return;
+        }
+
+        var trimmedTargets = _targetTextArea.Trim().Split('\n');
+        if (trimmedTargets.Length > 10)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "10개 초과의 대상을 추가할 수 없습니다.");
+            return;
+        }
+
+        switch (_targetAllType)
+        {
+            case TargetAllType.CharacterName:
+                _adminMailTargets = trimmedTargets.Select(str => new AdminMailTarget { CharName = str.Trim()});
+                break;
+
+            case TargetAllType.AccountUId:
+                _adminMailTargets = trimmedTargets.Select(str => new AdminMailTarget { AccountUId = long.TryParse(str, out var uid) ? uid : 0, Valid = false });
+                break;
+
+            case TargetAllType.CharacterUId:
+                _adminMailTargets = trimmedTargets.Select(str => new AdminMailTarget { CharUId = long.TryParse(str, out var uid) ? uid : 0, Valid = false });
+                break;
+
+            default:
+                return;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnTargetValidationAsync()
+    {
+        if (_adminMailTargets == null || !_adminMailTargets.Any())
+        {
+            return;
+        }
+
+        var targets = _adminMailTargets.ToList();
+        switch (_targetUserType)
+        {
+            case TargetUserType.Account:
+            {
+                    if (!await AdminMailService.AdminMailTargetAccountValidationAsync(targets))
+                {
+                    NotificationService.Notify(NotificationSeverity.Error, "Error", "대상 검증에 실패했습니다.");
+                    return;
+                }
+            }
+            break;
+            case TargetUserType.Character:
+            {
+                    if (!await AdminMailService.AdminMailTargetCharacterValidationAsync(_targetAllType, targets))
+                {
+                    NotificationService.Notify(NotificationSeverity.Error, "Error", "대상 검증에 실패했습니다.");
+                    return;
+                }
+            }
+            break;
+            default:
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", "대상 검증에 실패했습니다.");
+                return;
+            }
+        }
+
+        _adminMailTargets = targets;
+
+        NotificationService.Notify(NotificationSeverity.Success, "Success", "대상 검증에 성공하였습니다.");
+        
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnChangeTargetType()
+    {
+        if (_targetAllType == TargetAllType.AccountUId)
+        {
+            _isReadonlySendType = true;
+            _targetUserType = TargetUserType.Account;
+        }
+        else
+        {
+            _isReadonlySendType = false;
+            _targetUserType = TargetUserType.Character;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+}

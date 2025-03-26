@@ -1,0 +1,169 @@
+﻿@using AdminManager
+@using AdminManager.Accessors
+@using AdminManager.Common
+@using AdminManager.Components
+@using AdminManager.Components.Shared
+@using AdminManager.Job
+@using AdminManager.ModelView
+@using AdminManager.Service
+@using GDT
+
+@inject NotificationService NotificationService
+@inject IAdminMailService AdminMailService
+
+<div class="row my-2">
+    <div class="col">
+        <RadzenRow JustifyContent="JustifyContent.Normal" AlignItems="AlignItems.Center" class="rz-border-info-light m-2">
+            <RadzenColumn Size="1" class="rz-text-align-center rz-p-2">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="2px" style="width: 100%;">
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                        <RadzenButton Text="추가" Click="@OnCreateAttachedItemAsync" ButtonStyle="ButtonStyle.Primary" class="rz-mx-2"/>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenColumn>
+            <RadzenColumn class="rz-p-2">
+                <RadzenDataList WrapItems="false" AllowPaging="false" Data="@_adminMailAttachItems" TItem="AdminMailAttachItemModelView">
+                    <Template Context="mai">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+                            <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                                <RadzenButton Text="삭제" ButtonStyle="ButtonStyle.Danger" class="rz-mx-2" Click="@(args => OnDeleteAttachedItemAsync(mai))"/>
+                            </RadzenStack>
+
+                            <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                                <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">MainType</RadzenText>
+                                <RadzenDropDown @bind-Value="@mai.MainType" Data="@_attachedMainTypes" Change="@(args => OnChangeMainType(mai))" TValue="GDT.CurrencyMainType" TextProperty="MainTypeStr" ValueProperty="MainType" style="width: 100%;"/>
+                            </RadzenStack>
+
+                            @if(mai.MainType == CurrencyMainType.CMT_Item)
+                            {
+                                <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Item</RadzenText>
+                                    <RadzenDropDown @bind-Value="@mai.ItemId" Data="@_attachedTypeItems" TValue="int" TextProperty="ItemStr" ValueProperty="ItemId" style="width: 100%;"
+                                                    AllowFiltering="true" AllowClear="true" FilterOperator="StringFilterOperator.Contains"/>
+                                </RadzenStack>
+                            }
+                            else
+                            {
+                                <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">SubType</RadzenText>
+                                    <RadzenDropDown @bind-Value="@mai.SubType" Data="@mai.AttachedSubTypeItems" TValue="GDT.CurrencySubType" TextProperty="SubTypeStr" ValueProperty="SubType" style="width: 100%;" />
+                                </RadzenStack>
+                            }
+
+                            <RadzenStack Orientation="Orientation.Vertical" Gap="2px">
+                                <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-4 rz-mb-0">Amount</RadzenText>
+                                <RadzenNumeric @bind-Value="@mai.Amount" TValue="int" Change="@(args => OnAmountChangedAsync(mai))" InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "enter value" } })"/>
+                            </RadzenStack>
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataList>
+            </RadzenColumn>
+        </RadzenRow>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    EventConsole Console { get; set; }
+
+    private IEnumerable<AdminCurrencyMainType> _attachedMainTypes = null;
+    private IEnumerable<AdminMailAttachItem> _attachedTypeItems = null;
+
+    private readonly List<AdminMailAttachItemModelView> _adminMailAttachItems = new();
+    public IEnumerable<AdminMailAttachItemModelView> MailItems => _adminMailAttachItems;
+
+    public bool IsValidation()
+    {
+        if (MailItems == null || !MailItems.Any())
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "첨부 아이템을 등록해주세요!!");
+            return false;
+        }
+
+        if (MailItems.Count() > 1 && MailItems.Any(item => item.MainType == CurrencyMainType.CMT_Coin))
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "코인은 단독으로만 가능합니다!!");
+            return false;
+        }
+
+        if (!IsTypeValidation())
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _attachedMainTypes = AdminMailService.GetCurrencyMainTypeText();
+        _attachedTypeItems = AdminMailService.GetItemText();
+
+        await base.OnInitializedAsync();
+    }
+
+    private async Task<bool> OnCreateAttachedItemAsync()
+    {
+        if (_adminMailAttachItems.Count >= 5)
+            return false;
+
+        _adminMailAttachItems.Add(new AdminMailAttachItemModelView());
+        await InvokeAsync(StateHasChanged);
+
+        return true;
+    }
+
+    private async Task OnDeleteAttachedItemAsync(AdminMailAttachItemModelView mai)
+    {
+        _adminMailAttachItems.Remove(mai);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnChangeMainType(AdminMailAttachItemModelView mai)
+    {
+        mai.AttachedSubTypeItems = AdminMailService.GetCurrencySubTypeText((byte)mai.MainType);
+        mai.SubType = CurrencySubType.CST_None;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnAmountChangedAsync(AdminMailAttachItemModelView mai)
+    {
+        if (mai.MainType != CurrencyMainType.CMT_Item)
+            return Task.CompletedTask;
+
+        var item = _attachedTypeItems.FirstOrDefault(i => i.ItemId == mai.ItemId);
+        if (item == default)
+            return Task.CompletedTask;
+
+        if (mai.Amount > item.MaxAmount)
+        {
+            mai.Amount = item.MaxAmount;
+            Console.Log($"Max Amount Over - {item.ItemStr} - {item.MaxAmount}");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private bool IsTypeValidation()
+    {
+        foreach (var item in MailItems)
+        {
+            if (item.MainType == CurrencyMainType.CMT_None)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", "메인 타입을 설정해주세요!!");
+                return false;
+            }
+
+            if (item.MainType == CurrencyMainType.CMT_Item && item.ItemId == 0)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", "아이템을 설정해주세요!!");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+}

@@ -1,0 +1,260 @@
+﻿@page "/event-airdrop/"
+@page "/event-airdrop/{No:int?}"
+
+@using AdminManager
+@using AdminManager.Accessors
+@using AdminManager.Common
+@using AdminManager.Components
+@using AdminManager.Components.Shared
+@using AdminManager.Job
+@using AdminManager.ModelView
+@using AdminManager.Service
+@using AdminShared
+
+@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+@inject DialogService DialogService
+@inject TooltipService TooltipService
+
+@inject EventService EventService
+
+<PageTitle>에어드랍 이벤트</PageTitle>
+
+<div class="container-fluid my-4">
+    <div class="row my-4">
+        <div class="col text-begin">
+            <RadzenText TextStyle="TextStyle.H6">에어드랍 이벤트</RadzenText>
+        </div>
+    </div>
+    
+    <RadzenCard class="my-2" Style="width: 500px;">
+
+        이벤트 선택
+        <div class="row my-4">
+            <div class="col">
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">No</RadzenText>
+                        <RadzenText Style="text-align: center;">@_airdropEvent.No</RadzenText>
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">이벤트</RadzenText>
+                        <RadzenDropDown @bind-Value="@_airdropEvent.EventGameType" AllowVirtualization="true" Data="@_airdropTypes" Change="@OnChangeEvent" TValue="GameType" TextProperty="TypeStr" ValueProperty="Type" Style="width: 200px; text-align: center;"/>
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">메모</RadzenText>
+                        <RadzenTextBox Placeholder="description..." @bind-Value="@_airdropEvent.Note" Style="width: 400px;"/>
+                    </RadzenStack>
+                </RadzenStack>
+            </div>
+        </div>
+
+        누적 금액 사용
+        <div class="row my-4">
+            <div class="col">
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">수집 금액</RadzenText>
+                        <RadzenNumeric @bind-Value="@_airdropTextBoxView.CollectAirdropAmount" TextAlign="TextAlign.Right" Disabled="@AirdropTextBoxView.IsDisableCollectAirdropAmount" ShowUpDown="false" TValue="long" Style="width: 400px;"></RadzenNumeric>
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">사용 비율(%)</RadzenText>
+                        <RadzenNumeric @bind-Value="@_airdropTextBoxView.UsePercentage" @oninput="(OnChangeUsePercent)" Disabled="@_airdropTextBoxView.IsDisableUsePercentage" TextAlign="TextAlign.Right" Step="0.1" ShowUpDown="false" TValue="double" Style="width: 400px;"></RadzenNumeric>
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">산출 금액</RadzenText>
+                        <RadzenNumeric @bind-Value="@_airdropTextBoxView.UseAirdropAmount" TextAlign="TextAlign.Right" Disabled="@_airdropTextBoxView.IsDisableUseAirdropAmount" ShowUpDown="false" TValue="long" Style="width: 400px;"></RadzenNumeric>
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">취소 금액</RadzenText>
+                        <RadzenNumeric @bind-Value="@_airdropTextBoxView.CancelAmount" TextAlign="TextAlign.Right" Disabled="@_airdropTextBoxView.IsDisableCancelAmount" ShowUpDown="false" TValue="long" Style="width: 400px;"></RadzenNumeric>
+                    </RadzenStack>
+                </RadzenStack>
+            </div>
+        </div>
+
+        날짜 선택
+        <div class="row my-4">
+            <div class="col">
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Begin Date/Time(UTC+9)</RadzenText>
+                    <RadzenDatePicker @bind-Value="@_airdropEvent.BeginDate" ShowDays="true" Disable="@_airdropTextBoxView.IsDisableBeginDateTime" DateFormat="yyyy-MM-dd" class="p-1" />
+                    <RadzenDatePicker @bind-Value="@_airdropEvent.BeginTime" ShowTime="true" Disable="@_airdropTextBoxView.IsDisableBeginDateTime" TimeOnly="true" DateFormat="HH:mm:ss" class="p-1" />
+                </RadzenStack>
+            </div>
+        </div>
+
+        <div class="row my-4">
+            <div class="col p-1 text-center">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
+                    <RadzenButton Click="@OnAddSubmit" ButtonStyle="ButtonStyle.Primary">등록</RadzenButton>
+                    <RadzenButton Click="@OnDeleteSubmit" ButtonStyle="ButtonStyle.Secondary">삭제</RadzenButton>
+                </RadzenStack>
+
+            </div>
+        </div>
+
+    </RadzenCard>
+</div>
+
+<EventConsole @ref="@_console" />
+
+
+@code {
+    [Parameter]
+    public int? No { get; set; }
+
+    readonly IEnumerable<EventGameType> _airdropTypes = Enum.GetValues(typeof(GameType))
+                                            .Cast<GameType>()
+                                            .Select(gt => new EventGameType { TypeStr = gt.GetDescription(), Type = gt })
+                                            .ToList();
+    EventConsole _console;
+    AirdropTextBoxView _airdropTextBoxView = null;
+    AirdropEventModelView _airdropEvent = null;
+
+    /////////////////////////////////////////////////////////////////////////////////
+
+    protected override async Task OnInitializedAsync()
+    {
+        _airdropTextBoxView = new();
+
+        if (No > 0)
+        {
+            _airdropEvent = EventService.GetAirdropEvent(No.Value);
+        }
+
+        _airdropEvent ??= AirdropEventModelView.New();
+
+        _airdropTextBoxView.UseAirdropAmount = _airdropEvent.UseAmount;
+        _airdropTextBoxView.CancelAmount = _airdropEvent.RequireAmount;
+
+        _airdropTextBoxView.UseAmountChanged += (val) => _airdropEvent.UseAmount = Convert.ToInt32(val);
+        _airdropTextBoxView.CancelAmountChanged += (val) => _airdropEvent.RequireAmount = Convert.ToInt32(val);
+        
+        await base.OnInitializedAsync();
+    }
+
+    private async Task OnChangeEvent()
+    {
+        _airdropTextBoxView.SetAllDisable();
+        if (_airdropEvent.EventGameType == GameType.None)
+        {
+            _console.Log("game type is invalid");
+            return;
+        }
+
+        if (_airdropEvent.EventGameType == GameType.Event)
+        {
+            _airdropTextBoxView.Clear();
+            _airdropTextBoxView.SetAllDisable();
+            _airdropTextBoxView.IsDisableUseAirdropAmount = false;
+            return;
+        }
+
+        var airdropAmount = await EventService.GetAirdropAmount(_airdropEvent.EventGameType);
+        if (airdropAmount <= 0)
+        {
+            _console.Log("master server id or airdrop amount is zero");
+            return;
+        }
+
+        _console.Log($"game : {_airdropEvent.EventGameType}, amount {airdropAmount}");
+
+        _airdropTextBoxView.Clear();
+        _airdropTextBoxView.CollectAirdropAmount = airdropAmount;
+        _airdropTextBoxView.SetAllEnable();
+
+        StateHasChanged();
+    }
+
+    private async Task OnChangeUsePercent(ChangeEventArgs args)
+    {
+        _airdropTextBoxView.UseAirdropAmount = 0;
+
+        if (args.Value == null)
+            return;
+
+        if (!double.TryParse(args.Value.ToString(), out var val))
+            return;
+
+        if (val == 0)
+            return;
+
+        _airdropTextBoxView.UseAirdropAmount = (long)(_airdropTextBoxView.CollectAirdropAmount * val / 100);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void OnAddSubmit()
+    {
+        if (_airdropEvent.No > 0)
+        {
+            NotificationService.ShowMessage(NotificationSeverity.Error, "Error", "이미 등록되어 있는 이벤트 입니다.");
+            return;
+        }
+
+        if (!IsValidation())
+            return;
+
+        if (!await AddAirdropEvent())
+            return;
+
+        NavigationManager.NavigateTo("event-schedule");
+    }
+
+    private async void OnDeleteSubmit()
+    {
+        if (_airdropEvent.No <= 0)
+        {
+            NotificationService.ShowMessage(NotificationSeverity.Error, "Error", "신규 이벤트는 삭제가 불가능합니다.");
+            return;
+        }
+
+        if (!await RemoveAirdropEvent())
+            return;
+
+        NavigationManager.NavigateTo("event-schedule");
+    }
+
+    private async Task<bool> AddAirdropEvent()
+    {
+        if (EventService.IsExistAirdropEvent(_airdropEvent.No))
+        {
+            if (!await ShowAskModifyDialogFromNoAsync("이벤트 번호가 존재합니다. 수정하시겠습니까!?"))
+                return false;
+        }
+
+        return await EventService.AddAirdropEventAsync(_airdropEvent);
+    }
+
+    private async Task<bool> RemoveAirdropEvent()
+    {
+        if (!await ShowAskModifyDialogFromNoAsync("이벤트를 삭제할까요??"))
+            return false;
+
+        return await EventService.RemoveAirdropEventAsync(_airdropEvent.No);
+    }
+
+    private bool IsValidation()
+    {
+        if (!IsGameTypeValidation())
+            return false;
+
+        if (!IsInputValidation())
+            return false;
+
+        return true;
+    }
+
+    private async Task<bool> ShowAskModifyDialogFromNoAsync(string msg)
+    {
+        return await DialogService.OpenAsync("주의!!", ds =>
+            @<RadzenStack Gap="1.5rem">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <p>@msg</p>
+                    <RadzenButton Text="Ok" Click="() => ds.Close(true)" Style="width: 80px;"/>
+                    <RadzenButton Text="Cancel" Click="() => ds.Close(false)" ButtonStyle="ButtonStyle.Light"/>
+                </RadzenStack>
+            </RadzenStack>);
+    }
+}

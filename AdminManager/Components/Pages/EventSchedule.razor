@@ -1,0 +1,111 @@
+﻿@page "/event-schedule"﻿
+
+@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+
+@inject EventService EventService
+
+<PageTitle>이벤트 예약 확인</PageTitle>
+
+<div class="container-fluid my-2">
+    <div class="row my-4">
+        <div class="col-4 text-begin">
+            <RadzenText TextStyle="TextStyle.H6">이벤트 예약 확인</RadzenText>
+        </div>
+    </div>
+    <div class="row p-2">
+        <div class="col text-end">
+            <RadzenButton Click="OnRefreshSystem">새로 고침</RadzenButton>
+        </div>
+    </div>
+    <div class="row my-4">
+        <div class="col">
+            <RadzenDataGrid ColumnWidth="140px" AllowColumnResize="true" AllowSorting="true" FilterMode="FilterMode.Advanced" PageSize="15" AllowPaging="true"
+                            Data="@_airdropEvent" TItem="AirdropEventModelView">
+                <Columns>
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Property="No"            Title="No"         TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Property="EventGameType.GetDescription()"   Title="이벤트" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Property="UseAmount"     Title="금액"       TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Property="BeginDT"       Title="시작 일시"  TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Property="ExecuteRetStr" Title="요청 상태"  TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Property="ExecuteMsg"    Title="요청 결과"  TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Property="ExecuteDT"     Title="요청 일시"  TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Property="Note"          Title="메모"  Width="120px"     />
+                    
+                    <RadzenDataGridColumn TItem="AirdropEventModelView" Context="EvenType" Filterable="false" Sortable="false"
+                                          TextAlign="TextAlign.Right" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                        <Template Context="aemv">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                                          Size="ButtonSize.Medium" Click="@(args => OnEditMessage(aemv))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                          Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow(aemv))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+    </div>
+</div>
+
+<EventConsole @ref="@_console" />
+
+@code {
+    EventConsole _console;
+    IEnumerable<AirdropEventModelView> _airdropEvent = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        EventService.OnAirdropEventComplete += OnResponseExecuteAction;
+        
+        await base.OnInitializedAsync();
+    }
+
+    public void Dispose()
+    {
+        EventService.OnAirdropEventComplete -= OnResponseExecuteAction;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await OnRefreshSystem();
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async Task OnRefreshSystem()
+    {
+        _airdropEvent = EventService.GetAirdropEvent();
+
+        _console.Log(await EventService.GetSchedulerJob());
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnEditMessage(AirdropEventModelView aemv)
+    {
+        NavigationManager.NavigateTo($"event-airdrop/{aemv.No}");
+    }
+
+    private async Task OnDeleteRow(AirdropEventModelView aemv)
+    {
+        if (!await EventService.RemoveAirdropEventAsync(aemv.No))
+        {
+            return;
+        }
+
+        _airdropEvent = EventService.GetAirdropEvent();
+
+        _console.Log(await EventService.GetSchedulerJob());
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnResponseExecuteAction()
+    {
+        NotificationService.ShowMessage(NotificationSeverity.Info, "요청 결과", "결과 도착!!!");
+        OnRefreshSystem().GetAwaiter();
+    }
+}

@@ -1,0 +1,37 @@
+﻿@inherits LayoutComponentBase
+@inject IHostEnvironment HostEnvironment
+
+<header>
+    <div class="px-4 align-items-end">
+        <a href="#" target="_blank">[[AW]]</a>
+    </div>
+</header>
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu/>
+    </div>
+
+    <main>
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    @if (HostEnvironment.IsProduction())
+    {
+        <span>An error has occurred.</span>
+    }
+    else
+    {
+        <span>An unhandled exception occurred.</span>
+    }
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+<RadzenDialog />
+<RadzenNotification />
+<RadzenTooltip />

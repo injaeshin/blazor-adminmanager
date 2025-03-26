@@ -1,0 +1,90 @@
+﻿@page "/message-schedule"
+
+@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+
+@inject MessageService MessageService
+
+<PageTitle>공지 예약 확인</PageTitle>
+
+<div class="container-fluid my-2">
+    <div class="row my-4">
+        <div class="col-4 text-begin">
+            <RadzenText TextStyle="TextStyle.H6">공지 예약 확인</RadzenText>
+        </div>
+    </div>
+    <div class="row p-2">
+        <div class="col text-end">
+            <RadzenButton Click="OnRefreshSystemMessage">새로 고침</RadzenButton>
+        </div>
+    </div>
+    <div class="row my-4">
+        <div class="col">
+            <RadzenDataGrid AllowColumnResize=" true" AllowSorting="true" FilterMode="FilterMode.Advanced" PageSize="15" AllowPaging="true"
+                            Data="@_systemMessage" TItem="SystemMessageModelView">
+                <Columns>
+                    <RadzenDataGridColumn TItem="SystemMessageModelView" Property="No"            Title="No"       TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SystemMessageModelView" Property="BeginDateTime" Title="Begin DT(UTC+9)" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SystemMessageModelView" Property="EndDateTime"   Title="End DT(UTC+9)"   TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SystemMessageModelView" Property="Interval"      Title="Interval" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SystemMessageModelView" Property="Status"        Title="Status"   TextAlign="TextAlign.Center" />
+                    
+                    <RadzenDataGridColumn TItem="SystemMessageModelView" Context="messageTypes" Filterable="false" Sortable="false"
+                                          TextAlign="TextAlign.Right" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                        <Template Context="msm">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                                          Size="ButtonSize.Medium" Click="@(args => OnEditMessage(msm))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                          Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow(msm))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+    </div>
+</div>
+
+<EventConsole @ref="@_console" />
+
+@code {
+    EventConsole _console;
+    IEnumerable<SystemMessageModelView> _systemMessage = null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await OnRefreshSystemMessage();
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async Task OnRefreshSystemMessage()
+    {
+        _systemMessage = MessageService.GetSystemMessage();
+
+        _console.Log(MessageService.GetSchedulerJob());
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnDeleteRow(SystemMessageModelView ms)
+    {
+        if (!await MessageService.DeleteSystemMessageAsync(ms.No))
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "Failed to delete the message schedule.");
+            return;
+        }
+
+        _systemMessage = MessageService.GetSystemMessage();
+        await InvokeAsync(StateHasChanged);
+
+        _console.Log(MessageService.GetSchedulerJob());
+    }
+
+    private void OnEditMessage(SystemMessageModelView ms)
+    {
+        NavigationManager.NavigateTo($"message/{ms.No}");
+    }
+}

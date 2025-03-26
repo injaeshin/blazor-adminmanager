@@ -1,0 +1,182 @@
+﻿@page "/log-mail"
+
+@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+
+@inject IUserService UserService
+@inject ILogService LogService
+
+<h3>메일 로그</h3>
+
+<div class="container-fluid my-2">
+    <div class="row my-2">
+        <div class="col">
+            <LogInputForm @ref="_logInputForm" OnInputSubmit="OnInputSubmit" LogCateType="LogCateType.Mail"/>
+        </div>
+    </div>
+
+    <div class="row my-2">
+        <RadzenButton Text="Export CSV" Icon="grid_on" Click="@(args => ExportToCSV())" class="mb-4 me-2" />
+        <RadzenDataGrid @ref="grid" IsLoading="@_isLoading" Count="@_count" Data="@_logMail" LoadData="@LoadData"
+                        AllowSorting="true" AllowFiltering="true" AllowPaging="true" ShowPagingSummary="true"
+                        PageSize="@_size" Page="OnPage" PagerHorizontalAlign="HorizontalAlign.Center" PageSizeOptions="@_pageSizeOptions" PageSizeChanged="OnPageSizeChange"
+                        TItem="LogMailDataModelView">
+            <Columns>
+                <RadzenDataGridColumn TItem="LogMailDataModelView" Property="Uid" Title="Uid" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogMailDataModelView" Property="Id" Title="id" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogMailDataModelView" Property="Owner" Title="Owner" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogMailDataModelView" Property="State" Title="State" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogMailDataModelView" Property="ExpireTs" Title="ExpireTs" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogMailDataModelView" Property="FilterStr" Title="Filter" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogMailDataModelView" Property="ReasonStr" Title="Reason" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogMailDataModelView" Property="LogDateTimeStr" Title="DateTime" TextAlign="TextAlign.Center" />
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+<EventConsole @ref="@_console" />
+
+@code {
+    EventConsole _console;
+    LogInputForm _logInputForm;
+
+    readonly IEnumerable<int> _pageSizeOptions = new int[] { 10, 20, 30, 40, 50 };
+
+    int _count = 0;
+    int _size = 10;
+    bool _isLoading = false;
+    RadzenDataGrid<LogMailDataModelView> grid;
+    IEnumerable<LogMailDataModelView> _logMail;
+
+    LogSearchTarget _target;
+    LogSearchFilter _filter;
+    LogSearchOption _option;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _console = new EventConsole();
+        _logInputForm = new LogInputForm();
+
+        _size = _pageSizeOptions.First();
+
+        await base.OnInitializedAsync();
+    }
+
+    private async Task OnInputSubmit(LogSearchEventArgs arg)
+    {
+        _isLoading = true;
+
+        _target = arg.Target;
+        _filter = arg.Filter;
+        
+        _option = new LogSearchOption(0, _size);
+
+        await MailLogAsync();
+
+        _isLoading = false;
+
+        StateHasChanged();
+    }
+
+    private async Task LoadData(LoadDataArgs args)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        _option = new LogSearchOption(args.Skip ?? 0, args.Top ?? 10);
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            var orderParams = args.OrderBy.Split(' ');
+            if (orderParams[0] == "LogDateTimeStr")
+            {
+                _option.IsAsc = orderParams[1].ToLower() == "asc";
+                await MailLogAsync();
+            }
+        }
+
+        _isLoading = false;
+
+        _console.Log(args);
+    }
+
+    private async Task OnPageSizeChange(int arg)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        if (_target.CUID == 0)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _option.Take = arg;
+
+        await MailLogAsync();
+
+        _isLoading = false;
+    }
+
+    private async Task OnPage(PagerEventArgs arg)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        if (_target.CUID == 0)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _option.Size = arg.Skip;
+        _option.Take = arg.Top;
+
+        await MailLogAsync();
+
+        _isLoading = false;
+
+        _console.Log($"cnt - {_count} / arg - {arg}");
+    }
+
+    private async Task MailLogAsync()
+    {
+        var ret = await LogService.GetMailLog(_target, _filter, _option);
+        if (ret == null)
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        if (ret.Item1 == 0 || ret.Item2 == null)
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        _count = ret.Item1;
+        _logMail = ret.Item2;
+    }
+
+    private void ExportToCSV()
+    {
+        if (_logMail == null || !_logMail.Any())
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        var header = string.Join(",", grid.ColumnsCollection.Where(c => c.GetVisible() && !string.IsNullOrEmpty(c.Property))
+            .Select(c => c.Property.Contains(".") ? $"{c.Property} as {c.Property.Replace(".", "_")}" : c.Property));
+
+        var fileName = LogService.ExportToCSV("mailLog", header, _logMail);
+
+        NavigationManager.NavigateTo($"/api/download/csv/{fileName}", true);
+    }
+
+}
+

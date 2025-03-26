@@ -1,0 +1,182 @@
+﻿@page "/log-tier"
+
+@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+
+@inject IUserService UserService
+@inject ILogService LogService
+
+<h3>티어 로그</h3>
+
+<div class="container-fluid my-2">
+    <div class="row my-2">
+       <div class="col">
+           <LogInputForm @ref="_logInputForm" OnInputSubmit="OnInputSubmit" LogCateType="LogCateType.Tier"/>
+       </div>
+   </div>
+
+    <div class="row my-2">
+        <RadzenButton Text="Export CSV" Icon="grid_on" Click="@(args => ExportToCSV())" class="mb-4 me-2" />
+        <RadzenDataGrid @ref="grid" IsLoading="@_isLoading" Count="@_count" Data="@_logTier" LoadData="@LoadData"
+                        AllowSorting="true" AllowFiltering="true" AllowPaging="true" ShowPagingSummary="true"
+                        PageSize="@_size" Page="OnPage" PagerHorizontalAlign="HorizontalAlign.Center" PageSizeOptions="@_pageSizeOptions" PageSizeChanged="OnPageSizeChange"
+                        TItem="LogTierDataModelView">
+            <Columns>
+                <RadzenDataGridColumn TItem="LogTierDataModelView" Property="Exp" Title="Exp" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogTierDataModelView" Property="PrevExp" Title="Prev Exp" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogTierDataModelView" Property="RemainExp" Title="Remain Exp" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogTierDataModelView" Property="PrevGrade" Title="Prev Grade" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogTierDataModelView" Property="RemainGrade" Title="Remain Grade" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogTierDataModelView" Property="FilterStr" Title="Filter" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogTierDataModelView" Property="ReasonStr" Title="Reason" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogTierDataModelView" Property="LogDateTimeStr" Title="DateTime" TextAlign="TextAlign.Center" />
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+<EventConsole @ref="@_console" />
+
+@code {
+    EventConsole _console;
+    LogInputForm _logInputForm;
+
+    readonly IEnumerable<int> _pageSizeOptions = new int[] { 10, 20, 30, 40, 50 };
+    
+    int _count = 0;
+    int _size = 10;
+    bool _isLoading = false;
+    RadzenDataGrid<LogTierDataModelView> grid;
+    IEnumerable<LogTierDataModelView> _logTier;
+
+    LogSearchTarget _target;
+    LogSearchFilter _filter;
+    LogSearchOption _option;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _console = new EventConsole();
+        _logInputForm = new LogInputForm();
+
+        _size = _pageSizeOptions.First();
+
+        await base.OnInitializedAsync();
+    }
+
+    private async Task OnInputSubmit(LogSearchEventArgs arg)
+    {
+        _isLoading = true;
+
+        _target = arg.Target;
+        _filter = arg.Filter;
+
+        _option = new LogSearchOption(0, _size);
+
+        await TierLogAsync();
+
+        _isLoading = false;
+
+        StateHasChanged();
+    }
+
+    private async Task LoadData(LoadDataArgs args)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        _option = new LogSearchOption(args.Skip ?? 0, args.Top ?? 10);
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            var orderParams = args.OrderBy.Split(' ');
+            if (orderParams[0] == "LogDateTimeStr")
+            {
+                _option.IsAsc = orderParams[1].ToLower() == "asc";
+                await TierLogAsync();
+            }
+        }
+
+        _isLoading = false;
+
+        _console.Log(args);
+    }
+
+    private async Task OnPageSizeChange(int arg)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        if (_target.CUID == 0)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _option.Take = arg;
+
+        await TierLogAsync();
+
+        _isLoading = false;
+    }
+
+    private async Task OnPage(PagerEventArgs arg)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        if (_target.CUID == 0)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _option.Size = arg.Skip;
+        _option.Take = arg.Top;
+
+        await TierLogAsync();
+
+        _isLoading = false;
+
+        _console.Log($"cnt - {_count} / arg - {arg}");
+    }
+
+    private async Task TierLogAsync()
+    {
+        var ret = await LogService.GetTierLog(_target, _filter, _option);
+        if (ret == null)
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        if (ret.Item1 == 0 || ret.Item2 == null)
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        _count = ret.Item1;
+        _logTier = ret.Item2;
+    }
+
+    private void ExportToCSV()
+    {
+        if (_logTier == null || !_logTier.Any())
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        var header = string.Join(",", grid.ColumnsCollection.Where(c => c.GetVisible() && !string.IsNullOrEmpty(c.Property))
+            .Select(c => c.Property.Contains(".") ? $"{c.Property} as {c.Property.Replace(".", "_")}" : c.Property));
+
+        var fileName = LogService.ExportToCSV("TierLog", header, _logTier);
+
+        NavigationManager.NavigateTo($"/api/download/csv/{fileName}", true);
+    }
+
+}
+

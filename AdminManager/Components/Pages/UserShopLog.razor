@@ -1,0 +1,180 @@
+﻿@page "/log-shop"
+
+@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+
+@inject ILogService LogService
+
+<h3> 상점 구매 로그 </h3>
+
+<div class="container-fluid my-2">
+    <div class="row my-2">
+        <div class="col">
+            <LogInputForm @ref="_logInputForm" OnInputSubmit="OnInputSubmit" LogCateType="LogCateType.Shop" />
+        </div>
+    </div>
+
+    <div class="row my-2">
+        <RadzenButton Text="Export CSV" Icon="grid_on" Click="@(args => ExportToCSV())" class="mb-4 me-2" />
+        <RadzenDataGrid @ref="grid" IsLoading="@_isLoading" Count="@_count" Data="@_logShop" LoadData="@LoadData"
+                        AllowSorting="true" AllowFiltering="true" AllowPaging="true" ShowPagingSummary="true"
+                        PageSize="@_size" Page="OnPage" PagerHorizontalAlign="HorizontalAlign.Center" PageSizeOptions="@_pageSizeOptions" PageSizeChanged="OnPageSizeChange"
+                        TItem="LogShopDataModelView">
+            <Columns>
+                <RadzenDataGridColumn TItem="LogShopDataModelView" Property="Id" Title="id" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogShopDataModelView" Property="IdStr" Title="name" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogShopDataModelView" Property="Amount" Title="amount" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogShopDataModelView" Property="Cost" Title="cost" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogShopDataModelView" Property="FilterStr" Title="filter" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogShopDataModelView" Property="ReasonStr" Title="reason" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="LogShopDataModelView" Property="LogDateTimeStr" Title="datetime" TextAlign="TextAlign.Center" />
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+<EventConsole @ref="@_console" />
+
+@code {
+    EventConsole _console;
+    LogInputForm _logInputForm;
+
+    readonly IEnumerable<int> _pageSizeOptions = new int[] { 10, 20, 30, 40, 50 };
+
+    int _count = 0;
+    int _size = 10;
+    bool _isLoading = false;
+    RadzenDataGrid<LogShopDataModelView> grid;
+    IEnumerable<LogShopDataModelView> _logShop;
+
+    LogSearchTarget _target;
+    LogSearchFilter _filter;
+    LogSearchOption _option;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _console = new EventConsole();
+        _logInputForm = new LogInputForm();
+
+        _size = _pageSizeOptions.First();
+
+        await base.OnInitializedAsync();
+    }
+
+    private async Task OnInputSubmit(LogSearchEventArgs arg)
+    {
+        _isLoading = true;
+
+        _target = arg.Target;
+        _filter = arg.Filter;
+
+        _option = new LogSearchOption(0, _size, true);
+
+        await ShopLogAsync();
+
+        _isLoading = false;
+
+        StateHasChanged();
+    }
+
+    private async Task LoadData(LoadDataArgs args)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        _option = new LogSearchOption(args.Skip ?? 0, args.Top ?? 10, true);
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            var orderParams = args.OrderBy.Split(' ');
+            if (orderParams[0] == "LogDateTimeStr")
+            {
+                _option.IsAsc = orderParams[1].ToLower() == "asc";
+                await ShopLogAsync();
+            }
+        }
+
+        _isLoading = false;
+
+        _console.Log(args);
+    }
+
+    private async Task OnPageSizeChange(int arg)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        if (_target.CUID == 0)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _option.Take = arg;
+
+        await ShopLogAsync();
+
+        _isLoading = false;
+    }
+
+    private async Task OnPage(PagerEventArgs arg)
+    {
+        _isLoading = true;
+
+        await Task.Yield();
+
+        if (_target.CUID == 0)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _option.Size = arg.Skip;
+        _option.Take = arg.Top;
+
+        await ShopLogAsync();
+
+        _isLoading = false;
+
+        _console.Log($"cnt - {_count} / arg - {arg}");
+    }
+
+    private async Task ShopLogAsync()
+    {
+        var ret = await LogService.GetShopLog(_target, _filter, _option);
+        if (ret == null)
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        if (ret.Item1 == 0 || ret.Item2 == null)
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        _count = ret.Item1;
+        _logShop = ret.Item2;
+    }
+
+    private void ExportToCSV()
+    {
+        if (_logShop == null || !_logShop.Any())
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "No data found");
+            return;
+        }
+
+        var header = string.Join(",", grid.ColumnsCollection.Where(c => c.GetVisible() && !string.IsNullOrEmpty(c.Property))
+            .Select(c => c.Property.Contains(".") ? $"{c.Property} as {c.Property.Replace(".", "_")}" : c.Property));
+
+        var fileName = LogService.ExportToCSV("shoplog", header, _logShop);
+
+        NavigationManager.NavigateTo($"/api/download/csv/{fileName}", true);
+    }
+
+}
+

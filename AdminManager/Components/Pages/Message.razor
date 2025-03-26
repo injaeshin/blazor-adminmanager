@@ -1,0 +1,220 @@
+﻿@page "/message/{No:int?}"
+
+@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+@inject DialogService DialogService
+@inject TooltipService TooltipService
+
+@inject MessageService MessageService
+
+<PageTitle>Message</PageTitle>
+
+<div class="container-fluid my-2">
+    <div class="row my-4">
+        <div class="col-4 text-begin">
+            <RadzenText TextStyle="TextStyle.H6">공지 등록</RadzenText>
+        </div>
+    </div>
+    <div class="row my-4">
+        <div class="col">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+                <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">Message No</RadzenText>
+                    <RadzenText class="p-1" Style="text-align: center;">@_systemMessage.No</RadzenText>
+                </RadzenStack>
+            </RadzenStack>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+                <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">Message Type</RadzenText>
+                    <RadzenDropDown @bind-Value="@_systemMessage.MessageType" Data="@_messageType" TValue="MessageType" TextProperty="TypeStr" ValueProperty="Type" Name="MessageAction" class="p-1" Style="text-align: center;" />
+                </RadzenStack>
+                @if (_systemMessage.MessageType == MessageType.Schedule)
+                {
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">Interval Type</RadzenText>
+                        <RadzenDropDown @bind-Value="@_systemMessage.Interval" Data="@_intervalType" TValue="MessageIntervalType" TextProperty="TypeStr" ValueProperty="Type" Name="MessageInterval" Style="text-align: center;" />
+                    </RadzenStack>
+                }
+            </RadzenStack>
+        </div>
+        <div class="col" >
+            <RadzenStack Orientation="Orientation.Horizontal" Wrap="FlexWrap.Wrap">
+                @if (_systemMessage.MessageType == MessageType.Schedule)
+                {
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">Begin Date/Time(UTC+9)</RadzenText>
+                        <RadzenDatePicker @bind-Value="@_systemMessage.BeginDate" ShowDays="true" DateFormat="yyyy-MM-dd" class="p-1"/>
+                        <RadzenDatePicker @bind-Value="@_systemMessage.BeginTime" ShowTime="true" TimeOnly="true" DateFormat="HH:mm:ss" class="p-1"/>
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-5 rz-mb-0">End Date/Time(UTC+9)</RadzenText>
+                        <RadzenDatePicker @bind-Value="@_systemMessage.EndDate" ShowDays="true" DateFormat="yyyy-MM-dd" class="p-1"/>
+                        <RadzenDatePicker @bind-Value="@_systemMessage.EndTime" ShowTime="true" TimeOnly="true" DateFormat="HH:mm:ss" class="p-1"/>
+                    </RadzenStack>
+                }
+            </RadzenStack>
+        </div>
+    </div>
+
+    <div class="row my-4">
+        <div class="col">
+            <RadzenRow JustifyContent="JustifyContent.Normal" AlignItems="AlignItems.Center" class="rz-border-info-light m-2">
+                <RadzenColumn Size="1" class="rz-text-align-center rz-p-2">
+                    내용 <br />
+                    <RadzenButton Text="언어 추가" Click="@OnAddLanguageType" ButtonStyle="ButtonStyle.Primary" class="rz-mx-2" />
+                </RadzenColumn>
+                <RadzenColumn class="rz-p-2">
+                    <RadzenDataList WrapItems="false" AllowPaging="false" Data="@_message" TItem="MessageModelView">
+                        <Template Context="msg">
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenColumn Size="1">
+                                    <RadzenButton Text="삭제" ButtonStyle="ButtonStyle.Danger" class="rz-mx-2" Click="@(args => OnDeleteMessageAsync(msg))" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="2">
+                                    <RadzenDropDown @bind-Value="@msg.Language" Data="@_languageType" ReadOnly="true" TValue="GDT.LanguageType" TextProperty="TypeStr" ValueProperty="Type" style="width: 100%; max-width: 150px;" Name="UserType" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="9">
+                                    <RadzenTextArea @bind-value="@msg.Message" style="width: 100%;" />
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </Template>
+                    </RadzenDataList>
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenRow>
+                <RadzenColumn class="text-end">
+                    <RadzenButton Text="저장" Click="OnSubmitMessageAsync" ButtonStyle="ButtonStyle.Primary" class="rz-mx-2" />
+                    <RadzenButton Text="취소" Click="NewSystemMessage" ButtonStyle="ButtonStyle.Primary" class="rz-mx-2" />
+                </RadzenColumn>
+            </RadzenRow>
+        </div>
+    </div>
+</div>
+
+<EventConsole @ref="@_console" />
+
+@code {
+    [Parameter]
+    public int? No { get; set; }
+
+    EventConsole _console;
+    readonly IEnumerable<MessageAction> _messageType = MessageViewPreset.MessageActions;
+    readonly IEnumerable<MessageInterval> _intervalType = MessageViewPreset.MessageIntervals;
+    readonly IEnumerable<MessageLanguage> _languageType = Enum.GetValues(typeof(GDT.LanguageType))
+                                                            .Cast<GDT.LanguageType>()
+                                                            .Select(lt => new MessageLanguage { TypeStr = lt.ToString(), Type = lt })
+                                                            .ToList();
+    SystemMessageModelView _systemMessage = null;
+    List<MessageModelView> _message = null;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        if (No > 0)
+        {
+            _systemMessage = MessageService.GetSystemMessage(No.Value);
+            _message = MessageService.GetMessage(No.Value);
+        }
+
+        if (Utility.IsNullOrEmpty(_systemMessage, _message))
+            NewSystemMessage();
+
+        await base.OnInitializedAsync();
+    }
+
+    private void NewSystemMessage()
+    {
+        _systemMessage = SystemMessageModelView.New();
+        _message = [MessageModelView.New(_systemMessage.No)];
+    }
+
+    private async Task OnSubmitMessageAsync()
+    {
+        if (Utility.IsNullOrEmpty(_systemMessage, _message))
+            return;
+
+        if (_systemMessage.MessageType == MessageType.Instantly)
+        {
+            _systemMessage.BeginDateTime = DateTime.Now;
+            _systemMessage.EndDateTime = DateTime.Now;
+            _systemMessage.Interval = 0;
+        }
+
+        if (!await AddSystemMessageAsync())
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "Failed to add system message");
+            return;
+        }
+
+        NotificationService.Notify(NotificationSeverity.Success, "Success", "System message added successfully");
+
+        const string uri = $"message-schedule";
+        PageNavigationTo(uri);
+    }
+
+    private async Task<bool> AddSystemMessageAsync()
+    {
+        if (MessageService.IsExistSystemMessage(_systemMessage.No))
+        {
+            if (!await ShowAskModifyDialogFromNoAsync())
+                return false;
+        }
+
+        return await MessageService.AddMessageAsync(_systemMessage, _message);
+    }
+
+    private void PageNavigationTo(string uri)
+    {
+        NavigationManager.NavigateTo(uri);
+    }
+
+    private async Task<bool> ShowAskModifyDialogFromNoAsync()
+    {
+        return await DialogService.OpenAsync("주의!!", ds =>
+            @<RadzenStack Gap="1.5rem">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenStack Orientation="Orientation.Horizontal">
+                        <p>중복된 번호의 메시지가 이미 존재합니다. 수정하시겠습니까??</p>
+                        <RadzenButton Text="Ok" Click="() => ds.Close(true)" Style="width: 80px;"/>
+                        <RadzenButton Text="Cancel" Click="() => ds.Close(false)" ButtonStyle="ButtonStyle.Light"/>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenStack>);
+    }
+
+    private async Task OnDeleteMessageAsync(MessageModelView mm)
+    {
+        if (_message is null)
+            return;
+
+        if (_message.Count == 1)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "At least one message is required");
+            return;
+        }
+
+        _message.Remove(mm);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnAddLanguageType()
+    {
+        if (_message is null)
+            return Task.CompletedTask;
+
+        var langTypeValues = Enum.GetValues(typeof(GDT.LanguageType));
+        if (_message.Count == langTypeValues.Length)
+            return Task.CompletedTask;
+
+        foreach (var langType in langTypeValues.Cast<GDT.LanguageType>())
+        {
+            if (_message.Any(x => x.Language == langType))
+                continue;
+            
+            _message.Add(MessageModelView.New(_systemMessage.No, langType, "New Message"));
+            break;
+        }
+
+        return Task.CompletedTask;
+    }
+}

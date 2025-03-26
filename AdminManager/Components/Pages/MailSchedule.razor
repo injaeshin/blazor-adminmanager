@@ -1,0 +1,288 @@
+﻿@page "/mail-schedule"﻿
+@using AdminManager
+@using AdminManager.Accessors
+@using AdminManager.Common
+@using AdminManager.Components
+@using AdminManager.Components.Shared
+@using AdminManager.Job
+@using AdminManager.Model
+@using AdminManager.ModelView
+@using AdminManager.Service
+
+@inject NotificationService NotificationService
+
+@inject IAdminMailService AdminMailService
+
+<PageTitle>우편 예약 확인</PageTitle>
+
+<div class="container-fluid my-2">
+    <div class="row my-4">
+        <div class="col-4 text-begin">
+            <RadzenText TextStyle="TextStyle.H6">우편 예약 확인</RadzenText>
+        </div>
+    </div>
+
+    <RadzenTabs TabPosition="TabPosition.Top" RenderMode="TabRenderMode.Client" >
+        <Tabs>
+            <RadzenTabsItem Text="전체">
+                <div class="row p-2">
+                    <div class="col text-end">
+                        <RadzenButton Click="OnRefreshAdminMail">새로 고침</RadzenButton>
+                    </div>
+                </div>
+                <div class="row p-2">
+                    <div class="Col">
+                        <RadzenDataGrid @ref="_gridAdminMails" ColumnWidth="*" AllowSorting="true" AllowPaging="true" PageSize="10" 
+                                        Data="@_adminMails" TItem="AdminMailModelView" AllowRowSelectOnRowClick="true"
+                                        RowRender="OnRowAdminRender" RowExpand="OnRowExpand" SelectionMode="DataGridSelectionMode.Single" @bind-Value="@_selAdminMails">
+                            <Template Context="mail">
+                                <RadzenCard Variant="Variant.Filled" Class="rz-mx-auto" Style="max-width: 1200px">
+                                    <RadzenDataGrid Data="@mail.AttachItems" TItem="AdminMailAttachItemModelView">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Idx"         Title="Idx"       TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="ItemType"    Title="Type"     TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Param"       Title="Param"    TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Amount"      Title="Amount"   TextAlign="TextAlign.Center" />
+                                        </Columns>
+                                    </RadzenDataGrid> 
+                                </RadzenCard>
+                            </Template>
+                            <Columns>
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="MUID"             Title="No" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="MID"              Title="Mail Id"  TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="BeginDateTime"        Title="Begin DT" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="EndDateTime"          Title="End DT" TextAlign="TextAlign.Center" />
+
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Context="EvenType" Filterable="false" Sortable="false"
+                                                      TextAlign="TextAlign.Right" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                                    <Template Context="mail">
+                                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                                      Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow(mail))" @onclick:stopPropagation="true">
+                                        </RadzenButton>
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid> 
+                    </div>
+                </div>
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="개인 - 계정">
+                <div class="row p-2">
+                    <div class="col text-end">
+                        <RadzenButton Click="OnRefreshAdminAccountMail">새로 고침</RadzenButton>
+                    </div>
+                </div>
+                <div class="row p-2">
+                    <div class="Col">
+                        <RadzenDataGrid @ref="_gridAdminAccountMails" ColumnWidth="*" AllowSorting="true" AllowPaging="true" PageSize="10" 
+                                        Data="@_adminAccountMails" TItem="AdminMailModelView" AllowRowSelectOnRowClick="true"
+                                        RowRender="OnRowAdminAccountRender" RowExpand="OnAccountRowExpand" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@_selAdminAccountMails>
+                            <Template Context="mail">
+                                <RadzenCard Variant="Variant.Filled" Class="rz-mx-auto" Style="max-width: 1200px">
+                                    <RadzenDataGrid Data="@mail.AttachItems" TItem="AdminMailAttachItemModelView">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Idx" Title="No" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="ItemType" Title="Type" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Param" Title="Param" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Amount" Title="Amount" TextAlign="TextAlign.Center" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenCard>
+                            </Template>
+                            <Columns>
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="MUID"                  Title="Mail UId" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="MID"                   Title="Mail Id" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="AUID"                  Title="AUID" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="CharName"              Title="Name" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="BeginDateTime"        Title="Begin DT" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="EndDateTime"          Title="End DT" TextAlign="TextAlign.Center" />
+                                
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Context="EvenType" Filterable="false" Sortable="false"
+                                                      TextAlign="TextAlign.Right" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                                    <Template Context="mail">
+                                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                                      Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnAccountDeleteRow(mail))" @onclick:stopPropagation="true">
+                                        </RadzenButton>
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    </div>
+                </div>
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="개인 - 캐릭터">
+                 <div class="row p-2">
+                    <div class="col text-end">
+                        <RadzenButton Click="OnRefreshAdminCharacterMail">새로 고침</RadzenButton>
+                    </div>
+                </div>
+                <div class="row p-2">
+                    <div class="Col">
+                        <RadzenDataGrid @ref="_gridAdminCharacterMails" ColumnWidth="*" AllowSorting="true" AllowPaging="true" PageSize="10"
+                                        Data="@_adminCharacterMails" TItem="AdminMailModelView" AllowRowSelectOnRowClick="true"
+                                        RowRender="OnRowAdminCharacterRender" RowExpand="OnCharacterRowExpand" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@_selAdminCharacterMails>
+                            <Template Context="mail">
+                                <RadzenCard Variant="Variant.Filled" Class="rz-mx-auto" Style="max-width: 1200px">
+                                    <RadzenDataGrid Data="@mail.AttachItems" TItem="AdminMailAttachItemModelView">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Idx" Title="No" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="ItemType" Title="Type" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Param" Title="Param" TextAlign="TextAlign.Center" />
+                                            <RadzenDataGridColumn TItem="AdminMailAttachItemModelView" Property="Amount" Title="Amount" TextAlign="TextAlign.Center" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenCard>
+                            </Template>
+                            <Columns>
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="MUID"                  Title="Mail UId" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="MID"                   Title="Mail Id" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="CUID"                  Title="CUID" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="CharName"              Title="Name" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="BeginDateTime"        Title="Begin DT" TextAlign="TextAlign.Center" />
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Property="EndDateTime"          Title="End DT" TextAlign="TextAlign.Center" />
+                                
+                                <RadzenDataGridColumn TItem="AdminMailModelView" Context="EvenType" Filterable="false" Sortable="false"
+                                                      TextAlign="TextAlign.Right" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                                    <Template Context="mail">
+                                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                                      Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnCharacterDeleteRow(mail))" @onclick:stopPropagation="true">
+                                        </RadzenButton>
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    </div>
+                </div>
+        </RadzenTabsItem> 
+        </Tabs>
+    </RadzenTabs>
+</div>
+
+@code {
+
+    #region Admin Mail
+
+    RadzenDataGrid<AdminMailModelView> _gridAdminMails = null;
+    IEnumerable<AdminMailModelView> _adminMails = null;
+    IList<AdminMailModelView> _selAdminMails = null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await OnRefreshAdminMail();
+            await OnRefreshAdminAccountMail();
+            await OnRefreshAdminCharacterMail();
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    async Task OnRefreshAdminMail()
+    {
+        _adminMails = AdminMailService.GetAdminMailEvent();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void OnRowAdminRender(RowRenderEventArgs<AdminMailModelView> args)
+    {
+        args.Expandable = true; /* args.Data.RewardItems.Count() > 0; */
+    }
+
+    async void OnRowExpand(AdminMailModelView mail)
+    {
+        if (mail.AttachItems != null)
+            return;
+
+        mail.AttachItems = await AdminMailService.GetAdminMailAttachItemAsync(mail.MUID);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnDeleteRow(AdminMailModelView mail)
+    {
+        if (!await AdminMailService.RemoveAdminMailAsync(mail.MUID))
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "error", "우편 삭제 실패");
+            return;
+        }
+
+        await OnRefreshAdminMail();
+    }
+    #endregion Admin Mail
+
+    #region Admin Personal Account Mail
+
+    RadzenDataGrid<AdminMailModelView> _gridAdminAccountMails = null;
+    IEnumerable<AdminMailModelView> _adminAccountMails = null;
+    IList<AdminMailModelView> _selAdminAccountMails = null;
+
+    async Task OnRefreshAdminAccountMail()
+    {
+        _adminAccountMails = AdminMailService.GetAdminAccountMailEvent();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void OnRowAdminAccountRender(RowRenderEventArgs<AdminMailModelView> args)
+    {
+        args.Expandable = true; /* args.Data.RewardItems.Count() > 0; */
+    }
+
+    async void OnAccountRowExpand(AdminMailModelView mail)
+    {
+        if (mail.AttachItems != null) 
+            return;
+
+        mail.AttachItems = await AdminMailService.GetAdminAccountMailAttachItemAsync(mail.MUID);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnAccountDeleteRow(AdminMailModelView mail)
+    {
+        if (!await AdminMailService.RemoveAccountAdminMailAsync(mail.MUID))
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "error", "우편 삭제 실패");
+            return;
+        }
+
+        await OnRefreshAdminAccountMail();
+    }
+    #endregion
+
+    #region Admin Personal Char Mail
+
+    RadzenDataGrid<AdminMailModelView> _gridAdminCharacterMails = null;
+    IEnumerable<AdminMailModelView> _adminCharacterMails = null;
+    IList<AdminMailModelView> _selAdminCharacterMails = null;
+
+    async Task OnRefreshAdminCharacterMail()
+    {
+        _adminCharacterMails = AdminMailService.GetAdminCharacterMailEvent();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void OnRowAdminCharacterRender(RowRenderEventArgs<AdminMailModelView> args)
+    {
+        args.Expandable = true; /* args.Data.RewardItems.Count() > 0; */
+    }
+
+    async void OnCharacterRowExpand(AdminMailModelView mail)
+    {
+        if (mail.AttachItems != null) 
+            return;
+
+        mail.AttachItems = await AdminMailService.GetAdminCharacterMailAttachItemAsync(mail.MUID);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnCharacterDeleteRow(AdminMailModelView mail)
+    {
+        if (!await AdminMailService.RemoveCharacterAdminMailAsync(mail.MUID))
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "error", "우편 삭제 실패");
+            return;
+        }
+
+        await OnRefreshAdminCharacterMail();
+    }
+    #endregion
+}

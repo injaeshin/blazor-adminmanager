@@ -1,0 +1,133 @@
+﻿@inject NotificationService NotificationService
+@inject NavigationManager NavigationManager
+
+@inject IUserService UserService
+
+<div class="row my-2">
+    <div class="col">
+        <RadzenTemplateForm TItem="string" Data="@_search" Submit="OnSearchSubmit">
+            <RadzenCard class="my-2">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap" class="p-2">
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Filter</RadzenText>
+                        <RadzenDropDown @bind-Value="@_logFilterType" Data="@_filter" TValue="LogFilterType" TextProperty="TypeStr" ValueProperty="Type" Style="width: 100%;" />
+                    </RadzenStack>
+                    @*
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">SubType</RadzenText>
+                    <RadzenDropDown @bind-Value="@_subType" Data="@_currencySub" TValue="GDT.CurrencySubType" TextProperty="SubTypeStr" ValueProperty="SubType" Style="width: 100%;" />
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Reason</RadzenText>
+                        <RadzenDropDown @bind-Value="@_reasonType" Data="@_reasons" TValue="LogReasonType" TextProperty="TypeStr" ValueProperty="Type" Style="max-width: 800px; width: 100%;" />
+                    </RadzenStack>
+                    *@
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap" class="p-2">
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Type</RadzenText>
+                        <RadzenDropDown @bind-Value="@_charType" Data="@_character" TValue="TargetCharacterType" TextProperty="TypeStr" ValueProperty="Type" Style="width: 100%;" />
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Char / UID</RadzenText>
+                        <RadzenTextBox Name="Name" @bind-Value="@_search" />
+                        <RadzenRequiredValidator Component="Name" Text="name is required" Popup="false" Style="position: absolute" />
+                    </RadzenStack>
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap" class="p-2">
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Begin Date/Time</RadzenText>
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
+                            <RadzenDatePicker @bind-Value="@_dt.BeginDate" ShowDays="true" DateFormat="yyyy-MM-dd" Name="BeginDate" />
+                            <RadzenDatePicker @bind-Value="@_dt.BeginTime" ShowTime="true" TimeOnly="true" DateFormat="HH:mm" Name="BeginTime" />
+                        </RadzenStack>
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">End Date/Time</RadzenText>
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
+                            <RadzenDatePicker @bind-Value="@_dt.EndDate" ShowDays="true" DateFormat="yyyy-MM-dd" Name="EndDate" />
+                            <RadzenDatePicker @bind-Value="@_dt.EndTime" ShowTime="true" TimeOnly="true" DateFormat="HH:mm" Name="EndTime" />
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="4px">
+                        <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-0 rz-mb-0">Submit</RadzenText>
+                        <RadzenButton ButtonType="ButtonType.Submit" Text="Search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenTemplateForm>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<LogSearchEventArgs> OnInputSubmit { get; set; }
+    [Parameter]
+    public LogCateType LogCateType { get; set; }
+
+    IEnumerable<LogFilter> _filter = null;
+    LogFilterType _logFilterType = LogFilterType.None;
+
+    IEnumerable<Character> _character = TargetViewPreset.CharacterTargets;
+    TargetCharacterType _charType = TargetCharacterType.CharacterName;
+
+    //IEnumerable<AdminCurrencySubType> _currencySub = CurrencyService.GetCurrencySubTypeText();
+    GDT.CurrencySubType _subType = GDT.CurrencySubType.CST_None;
+
+    //IEnumerable<LogReason> _reasons = LogViewPreset.GetReasons();
+    LogReasonType _reasonType = LogReasonType.None;
+
+    long _cuid = 0;
+    string _search = string.Empty;
+    readonly DateTimeModelView _dt = new() { BeginDateTime = DateTime.Now.Date.AddDays(-1), EndDateTime = DateTime.Now.Date.AddDays(+1).AddSeconds(-1) };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _filter = LogCategory.GetFilter(LogCateType);
+        _logFilterType = _filter.First().Type;
+
+        await base.OnInitializedAsync();
+    }
+
+    private async Task OnSearchSubmit()
+    {
+        if (_dt.BeginDateTime >= _dt.EndDateTime)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "시작/종료 시간이 잘못되었습니다!!");
+            return;
+        }
+
+        _cuid = await UserService.GetCharacterUID(_charType, _search);
+        if (_cuid == 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "Character not found");
+            return;
+        }
+
+        var target = new LogSearchTarget()
+        {
+            CharType = _charType,
+            CUID = _cuid,
+
+            BeginDateTime = _dt.BeginDateTime,
+            EndDateTime = _dt.EndDateTime
+        };
+
+        var filter = new LogSearchFilter()
+        {
+            FilterType = _logFilterType,
+            SubType = _subType,
+            ReasonType = _reasonType,
+        };
+
+        var args = new LogSearchEventArgs()
+        {
+            Target = target,
+            Filter = filter
+        };
+
+        await OnInputSubmit.InvokeAsync(args);
+    }
+}

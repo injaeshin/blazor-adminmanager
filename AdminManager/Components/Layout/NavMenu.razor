@@ -1,0 +1,122 @@
+﻿@inject IGDTAccessor GDTAccessor
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <div class="nav-item px-2">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <i class="bi fas fa-home fa-lg" aria-hidden="true"></i> Home
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-2">
+            <NavLink class="nav-link" href="user">
+                <span class="bi fas fa-user fa-lg" aria-hidden="true"></span> 계정 / 캐릭터
+            </NavLink>
+            <ul class="nav">
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="log-char">
+                        <span class="bi fas fa-user fa-lg" aria-hidden="true"></span> 캐릭터 로그
+                    </NavLink>
+                </li>
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="log-currency">
+                        <span class="bi fas fa-coins fa-lg" aria-hidden="true"></span> 재화 로그
+                    </NavLink>
+                </li>
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="log-tier">
+                        <span class="bi fas fa-seedling fa-lg" aria-hidden="true"></span> 티어 로그
+                    </NavLink>
+                </li>
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="log-mail">
+                        <span class="bi fas fa-envelope fa-lg" aria-hidden="true"></span> 메일 로그
+                    </NavLink>
+                </li>
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="log-shop">
+                        <span class="bi fas fa-store fa-lg" aria-hidden="true"></span> 상점 로그
+                    </NavLink>
+                </li>
+            </ul>
+        </div>
+
+        <div class="nav-item px-2">
+            <NavLink class="nav-link" href="message-schedule">
+                <span class="bi fas fa-info-circle fa-lg" aria-hidden="true"></span> 메시지
+            </NavLink>
+            <ul class="nav">
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="message">
+                        <span class="bi fas fa-microphone fa-lg" aria-hidden="true"></span> 시스템 메시지
+                    </NavLink>
+                </li>
+            </ul>
+        </div>
+
+        <div class="nav-item px-2">
+            <NavLink class="nav-link" href="event-schedule">
+                <span class="bi fas fa-info-circle fa-lg" aria-hidden="true"></span> 이벤트
+            </NavLink>
+            <ul class="nav">
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="event-airdrop">
+                        <span class="bi fas fa-star fa-lg" aria-hidden="true"></span> 에어 드랍
+                    </NavLink>
+                </li>
+            </ul>
+        </div>
+
+        <div class="nav-item px-2">
+            <NavLink class="nav-link" href="mail-schedule">
+                <span class="bi fas fa-info-circle fa-lg" aria-hidden="true"></span> 우편
+            </NavLink>
+            <ul class="nav">
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="mail">
+                        <span class="bi fas fa-envelope fa-lg" aria-hidden="true"></span> 전체 우편
+                    </NavLink>
+                </li>
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="mail-personal">
+                        <span class="bi fas fa-envelope fa-lg" aria-hidden="true"></span> 개인 우편
+                    </NavLink>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="nav-item px-2">
+            <NavLink class="nav-link">
+                <span class="bi fas fa-info-circle fa-lg" aria-hidden="true"></span> 시스템
+            </NavLink>
+            <ul class="nav">
+                <li class="px-2 nav-item">
+                    <NavLink class="nav-link" href="content-lock">
+                        <span class="bi fas fa-toggle-on fa-lg" aria-hidden="true"></span> GAME ON / OFF
+                    </NavLink>
+                </li>
+            </ul>
+
+        </div>
+
+        <div class="nav-item px-2">
+            <NavLink class="nav-link" href="#">
+                <span class="bi fas fa-book fa-lg" aria-hidden="true"></span> GDT v@_version
+            </NavLink>
+        </div>
+    </nav>
+
+</div>
+
+@code {
+    private string _version = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        _version = GDTAccessor.GetVersion();
+
+        base.OnInitialized();
+    }
+}
